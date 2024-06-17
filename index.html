@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockTerm</title>
+
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --block-hover: #171717;
+            --exited-bg: #2c2c2c;
+            --fg: #ffffff;
+        }
+
+        body {
+            padding: 0;
+            margin: 0;
+            color: var(--fg);
+            font-family: monospace;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .root {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .input-block {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+/* 
+        .block:hover, .text-block:hover > .user-input {
+            background-color: var(--block-hover);
+        } */
+
+        .user-input {
+            flex: 1;
+            color: var(--fg);
+            background-color: var(--bg);
+            font-family: monospace;
+            outline: none;
+            border: none;
+            font-size: 1em;
+            margin-left: .2em;
+        }
+
+        .user-input:focus {
+            outline: none;
+            border: none;
+        }
+
+        .error {
+            color: #ff9090;
+        }
+
+        .exited, .exited > *, .exited > input {
+            background-color: var(--exited-bg);
+        }
+
+        .image-block {
+            width: 100;
+            display: flex;
+            align-items: center;
+        }
+
+        .image-block > img {
+            width: 70%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="root">
+    </div>
+</body>
+<script src="lib/commons.js"></script>
+<script>
+    const env = {
+        pwd: "/root",
+        username: "root",
+        hostname: "web",
+    }
+    const state = {
+        line: 0,
+        history: [],
+        running: true,
+        exitCode: 0,
+    }
+    const blockCommands = [
+        "loadimg"
+    ]
+    const root = query(".root");
+    
+    function buildPromptString() {
+        return `${env.username}@${env.hostname}:${env.pwd}#`;
+    }
+
+    function createInputBlock(prompt, initialValue) {
+        const html = `
+        <div class="input-block block">
+            <span class="prompt">${prompt}</span>
+            <input type="text" class="user-input" id="input-${state.line}" placeholder="..." value="${initialValue}" onkeypress="handleInputKeyPress(event)">
+        </div>
+        `;
+
+        return new DOMParser().parseFromString(html, 'text/html').body.firstElementChild;
+    }
+
+    function createImageBlock(url) {
+        const html = `
+        <div class="image-block block">
+            <img src="${url}" alt="[Image Block]">            
+        </div>
+        `;
+
+        return new DOMParser().parseFromString(html, 'text/html').body.firstElementChild;
+    }
+
+    function createTextBlock(type, value) {
+        let html = `
+        <div class="text-block block">
+        `;
+
+        switch (type) {
+            case "err":
+                html += `<span class="error">${value}</span>`;
+                break;
+            default:
+                html += `<span class="text">${value}</span>`;
+                break;
+        }
+
+        html += "</div>";
+        return new DOMParser().parseFromString(html, 'text/html').body.firstElementChild;
+    }
+
+    function scrollBottom() {
+        root.scrollTo(0, root.scrollHeight);
+    }
+    function handleInputKeyPress(event) {
+        scrollBottom()
+
+        let input = fromId(`input-${state.line}`)
+        if (event.key === "Enter") {
+            let result = handleCommand(input.value)
+            if (result.type == "block") {
+                appendBlock(result.value);
+            } else {
+                appendBlock(createTextBlock(result.type, result.value));
+            }
+
+            if (state.running) newLine()
+            else postExit()
+
+            scrollBottom()
+        }
+    }
+
+    function appendBlock(block) {
+        root.appendChild(block)
+    }
+
+    function postExit() {
+        fromId(`input-${state.line}`).disabled = true;
+        document.title += ` [Exited with code ${state.exitCode}]`
+        document.body.classList.add("exited")
+        root.classList.add("exited")
+    }
+    function disablePrevInput() {
+        let prevInput = fromId(`input-${state.line-1}`)
+        if (prevInput && state.line > 0) prevInput.disabled = true
+    }
+
+    function newLine() {
+        state.line++
+        root.appendChild(createInputBlock(buildPromptString(), ""))
+        disablePrevInput()
+
+        fromId(`input-${state.line}`).focus()
+    }
+
+    function result(type, value) {
+        return {type: type, "value": value}
+    }
+
+    const handlers = {
+        echo: (args) => {
+            return result("text", args.join(" "))
+        },
+        eval: (args) => {
+            try {
+                let value = eval(args.join(" "))
+                return result("text", value);
+            } catch (error) {
+                return result("err", error)
+            }
+        },
+        exit: (args) => {
+            state.running = false;
+            state.exitCode = parseInt(args[0]) == NaN ? -1 : parseInt(args[0]);
+            return result("text", `[Exit ${state.exitCode}]`)
+        },
+        loadimg: (args) => {
+            return result("block", createImageBlock(args[0]))
+        }
+    }
+
+    function handleCommand(input) {
+        let tokens = input.split(" ")
+        let cmd = tokens[0];
+
+        if (tokens.length <= 1) {
+            return result("err", "No arguments!")
+        }
+
+        if (cmd in handlers) {
+            let args = [...tokens];
+            args.shift();
+
+            return handlers[cmd](args)
+        }
+
+        return result("err", `Invalid command ${tokens[0]}`)
+    }
+
+    newLine()
+</script>
+
+</html>
