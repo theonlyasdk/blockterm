@@ -1,8 +1,5 @@
-# blockterm
+# Blockterm
  Block-based HTML terminal
 
-# Usage
-- `help`: Shows help
-- `loadimg <url>`: Loads specified image
-- `echo <str>`: Echoes back specfied `<str>`
-- `exit <code>`: Exits session with specified `<code>`
+# Available commands
+Go to the terminal and type `help` and it'll show u the list of available commands
