@@ -16,6 +16,8 @@ const versionInfo = {
   debug: true,
 };
 
+// This is an imaginary filesystem, not currently using a tree structure
+// TODO: Use a tree structure for the filesystem for a more realistic experience
 const fs = {
   root: ENV_ROOT,
   files: [
@@ -28,8 +30,10 @@ const fs = {
   ]
 }
 
+// Maps a set of commands to other commands
 const aliasMap = {
-  "cls": "clear"
+  "cls": "clear",
+  "dir": "ls"
 }
 
 const env = {
@@ -245,7 +249,7 @@ const commands = {
     exec: _args => {
       return result("text", env.cwd);
     },
-    desc: "Prints the working directory",
+    desc: "Prints the name of working directory",
     args: {},
   },
   cd: {
@@ -253,9 +257,9 @@ const commands = {
       env.cwd = toPath(args);
       return result("empty", "");
     },
-    desc: "Navigates to specified directory",
+    desc: "Sets current directory to specified directory",
     args: {
-      directory: "path to navigate to",
+      directory: "path to directory",
     },
   },
   ls: {
@@ -264,9 +268,13 @@ const commands = {
         return result("text", fs.files.join("\n".htmlString()));
       }
 
+      if (!fs.files.includes(".")) {
+        return result("error", '. does not exist!');
+      }
+
       return result("text", fs.files.join(" "));
     },
-    desc: "Lists the files in the current directory",
+    desc: "Lists the working directory",
     args: {},
   },
   mkdir: {
@@ -276,7 +284,7 @@ const commands = {
     },
     desc: "Creates a directory",
     args: {
-      directory: "path to create"
+      directory: "name of directory"
     },
   },
   rmdir: {
@@ -286,7 +294,17 @@ const commands = {
     },
     desc: "Removes a directory",
     args: {
-      directory: "path to remove"
+      directory: "path to directory"
+    },
+  },
+  rm: {
+    exec: args => {
+      fs.files = fs.files.filter(value => value !== args[0]);
+      return result("empty", "");
+    },
+    desc: "Removes a file",
+    args: {
+      directory: "path to file"
     },
   },
   alias: {
@@ -341,7 +359,7 @@ function handleCommand(input) {
 
   if (input === "") return result("cancel", "");
   if (!(command in commands))
-    return result("error", `Invalid command @!b ${command} @/b`.htmlString());
+    return result("error", `unknown command @!b ${command} @/b`.htmlString());
 
   if (command in commands) {
     let command_args_length = Object.keys(commands[command].args).length;
